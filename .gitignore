@@ -1,0 +1,17 @@
+# dependências e ambiente local
+node_modules/
+.env
+
+# dados e logs do MongoDB local (replica set rs0)
+data/
+logs/
+
+# pacotes gerados para envio no Teams (recriados por gerar-entregas.ps1)
+entregas/
+
+# cópias de trabalho que não fazem parte do projeto
+anexos/
+evidencias/originais_com_barra/
+parte*/Relatorio_*
+tarefa*/Relatorio_*
+~$*

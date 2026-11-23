@@ -1,0 +1,38 @@
+{
+  "name": "desafio-tecnico-back-end",
+  "version": "1.0.0",
+  "description": "Desafio Técnico Back-End: Engenharia de Dados com MongoDB (Banco de Dados Não Relacional)",
+  "main": "parte1/index.js",
+  "scripts": {
+    "parte1": "node parte1/index.js",
+    "parte2": "node parte2/testar-api.js",
+    "parte3": "node parte3/index.js",
+    "seed": "node parte4/seed.js",
+    "tarefa1": "node tarefa1/demo.js",
+    "tarefa2": "node tarefa2/pipelines.js",
+    "tarefa3": "node tarefa3/otimizar.js",
+    "tarefa4": "node tarefa4/testar-checkout.js",
+    "relatorios": "node scripts/gerar-relatorios.js --simples"
+  },
+  "keywords": [
+    "mongodb",
+    "nodejs",
+    "express",
+    "mongoose",
+    "aggregation",
+    "indexes",
+    "transactions"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "dotenv": "^18.0.10",
+    "express": "^5.3.0",
+    "mongodb": "^7.9.1",
+    "mongoose": "^9.12.3"
+  },
+  "devDependencies": {
+    "docx": "^9.16.0"
+  }
+}
