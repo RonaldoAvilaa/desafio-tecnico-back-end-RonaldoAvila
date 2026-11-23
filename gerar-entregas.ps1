@@ -26,6 +26,8 @@ foreach ($nome in $atividades.Keys) {
   New-Item -ItemType Directory $dest | Out-Null
   foreach ($pasta in $atividades[$nome]) { Copy-Item (Join-Path $raiz $pasta) $dest -Recurse }
   foreach ($arq in $comuns) { Copy-Item (Join-Path $raiz $arq) $dest }
+  # o relatório (PDF) vai anexado à parte no Teams; o zip leva só o código e os resultados .md
+  Get-ChildItem $dest -Recurse -File -Filter 'Relatorio_*' | Remove-Item -Force
   $zip = Join-Path $saida "MongoDB_$nome.zip"
   Compress-Archive -Path (Join-Path $dest '*') -DestinationPath $zip
   "{0,-22} {1,8:N0} bytes" -f (Split-Path $zip -Leaf), (Get-Item $zip).Length
