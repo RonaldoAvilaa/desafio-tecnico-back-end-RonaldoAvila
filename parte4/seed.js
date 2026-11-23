@@ -101,7 +101,7 @@ async function gerarAmostra(db) {
 
   const md = `# Parte 4 - Amostra do banco instanciado
 
-Banco: \`${DB_NAME}\` — gerado em ${new Date().toLocaleString('pt-BR')}
+Banco: \`${DB_NAME}\`
 
 ## Contagem de documentos
 

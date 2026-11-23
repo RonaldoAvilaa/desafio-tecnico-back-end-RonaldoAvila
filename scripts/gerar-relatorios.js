@@ -4,7 +4,7 @@
  * Depois, scripts/converter-pdf.ps1 converte cada .docx em PDF usando o Word.
  *
  * Rodar:  node scripts/gerar-relatorios.js
- * Opcional: defina ALUNO para incluir seu nome na capa, ex.:
+ * O nome do aluno vai no topo de cada relatório (pode ser trocado com a variável ALUNO), ex.:
  *   $env:ALUNO = "Seu Nome"; node scripts/gerar-relatorios.js
  *
  * Versão simples (sem capa, sem rodapé, sem fundo nos códigos e sem as datas de execução):
@@ -19,7 +19,7 @@ const {
 
 const RAIZ = path.join(__dirname, '..');
 const EVID = path.join(RAIZ, 'evidencias');
-const ALUNO = process.env.ALUNO || '';
+const ALUNO = process.env.ALUNO || 'Ronaldo de Ávila Ribeiro Júnior';
 const SIMPLES = process.argv.includes('--simples');
 const PASTA_SIMPLES = path.join(RAIZ, 'relatorios_simples');
 const DISCIPLINA = 'Banco de Dados Não Relacional';
@@ -255,8 +255,7 @@ function capa(atv) {
     linha(atv.titulo, { size: 44, bold: true, color: COR.titulo }),
     linha('Relatório de resultados', { size: 28, color: COR.destaque }),
     new Paragraph({ spacing: { before: 1800 }, children: [] }),
-    ...(ALUNO ? [linha(`Aluno: ${ALUNO}`, { size: 24 })] : []),
-    linha(`Data: ${new Date().toLocaleDateString('pt-BR')}`, { size: 22, color: COR.cinza }),
+    linha(`Aluno: ${ALUNO}`, { size: 24 }),
     linha('Ambiente: Node.js + MongoDB 9.0 (replica set rs0) + MongoDB Compass', { size: 20, color: COR.cinza }),
     new Paragraph({ children: [new PageBreak()] }),
   ];
@@ -270,8 +269,7 @@ function cabecalhoSimples(atv) {
     linha(DESAFIO, { size: 22, color: COR.cinza }),
     linha(atv.titulo, { size: 32, bold: true, color: COR.titulo }, 20),
     linha('Relatório', { size: 24, color: COR.destaque }),
-    ...(ALUNO ? [linha(`Aluno: ${ALUNO}`, { size: 20, color: COR.cinza })] : []),
-    linha(`Data: ${new Date().toLocaleDateString('pt-BR')}`, { size: 20, color: COR.cinza }, 240),
+    linha(`Aluno: ${ALUNO}`, { size: 22, bold: true, color: COR.cinza }, 240),
   ];
 }
 

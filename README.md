@@ -1,5 +1,7 @@
 # Desafio Técnico Back-End: Engenharia de Dados com MongoDB
 
+**Aluno:** Ronaldo de Ávila Ribeiro Júnior
+
 Projeto da disciplina **Banco de Dados Não Relacional**. Ele reúne as 8 etapas do desafio: uma API de marketplace que evolui da memória para o MongoDB, um seed com 100 mil pedidos, modelagem de schema, Aggregation Framework, otimização com índices e transações ACID.
 
 **Stack:** Node.js · Express 5 · MongoDB 9 (replica set) · Mongoose · driver oficial `mongodb` · MongoDB Compass

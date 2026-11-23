@@ -1,6 +1,6 @@
 # Tarefa 2 — Relatório (Aggregation Framework)
 
-Banco `marketplace` (seed da Parte 4: 100.000 pedidos). Gerado em 22/11/2026, 14:10:13.
+Banco `marketplace` (seed da Parte 4: 100.000 pedidos).
 Os dois relatórios rodam inteiros no MongoDB com `db.orders.aggregate([...])`; nenhum array é processado na aplicação.
 
 **Status considerados como venda:** PAID, SHIPPED, DELIVERED. `PENDING` e `CANCELED` ficam de fora, pois não geram receita.
@@ -9,7 +9,7 @@ Os dois relatórios rodam inteiros no MongoDB com `db.orders.aggregate([...])`; 
 
 ## 1. Faturamento por Categoria (últimos 90 dias)
 
-Período: de **24/08/2026** até hoje (`createdAt >= ISODate("2026-08-24T00:00:00.000Z")`) — tempo de execução: **248 ms**
+Período: últimos 90 dias (`createdAt >= ISODate("2026-08-24T00:00:00.000Z")`) — tempo de execução: **248 ms**
 
 | # | Categoria | Faturamento total | Itens vendidos | Pedidos |
 |---|---|---:|---:|---:|

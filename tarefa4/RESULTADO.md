@@ -1,6 +1,6 @@
 # Tarefa 4 — Consistência e Transações ACID (Checkout)
 
-Executado em 22/11/2026, 14:05:03 contra um MongoDB em **replica set** (`rs0`). Transações multi-documento não funcionam em instância standalone.
+Executado contra um MongoDB em **replica set** (`rs0`). Transações multi-documento não funcionam em instância standalone.
 
 ## Implementação
 

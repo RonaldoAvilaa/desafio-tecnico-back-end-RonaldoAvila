@@ -108,7 +108,7 @@ async function limparExecucaoAnterior() {
 
   const md = `# Tarefa 4 — Consistência e Transações ACID (Checkout)
 
-Executado em ${new Date().toLocaleString('pt-BR')} contra um MongoDB em **replica set** (\`rs0\`). Transações multi-documento não funcionam em instância standalone.
+Executado contra um MongoDB em **replica set** (\`rs0\`). Transações multi-documento não funcionam em instância standalone.
 
 ## Implementação
 

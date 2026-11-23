@@ -82,7 +82,7 @@ async function medir(orders, filtro, sort) {
 
   const md = `# Tarefa 3 — Diagnóstico e Otimização de Performance
 
-Banco \`marketplace\`, coleção \`orders\` com **${n(totalColecao)} documentos** (seed da Parte 4). Executado em ${new Date().toLocaleString('pt-BR')}.
+Banco \`marketplace\`, coleção \`orders\` com **${n(totalColecao)} documentos** (seed da Parte 4).
 
 ## Consulta analisada
 

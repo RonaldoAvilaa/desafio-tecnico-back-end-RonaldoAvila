@@ -133,7 +133,7 @@ function formatarPipeline(pipeline) {
   const totalGeral = faturamento.reduce((s, c) => s + c.faturamentoTotal, 0);
   const md = `# Tarefa 2 — Relatório (Aggregation Framework)
 
-Banco \`marketplace\` (seed da Parte 4: 100.000 pedidos). Gerado em ${new Date().toLocaleString('pt-BR')}.
+Banco \`marketplace\` (seed da Parte 4: 100.000 pedidos).
 Os dois relatórios rodam inteiros no MongoDB com \`db.orders.aggregate([...])\`; nenhum array é processado na aplicação.
 
 **Status considerados como venda:** ${STATUS_FATURADOS.join(', ')}. \`PENDING\` e \`CANCELED\` ficam de fora, pois não geram receita.
@@ -142,7 +142,7 @@ Os dois relatórios rodam inteiros no MongoDB com \`db.orders.aggregate([...])\`
 
 ## 1. Faturamento por Categoria (últimos 90 dias)
 
-Período: de **${desde.toLocaleDateString('pt-BR', { timeZone: 'UTC' })}** até hoje (\`createdAt >= ISODate("${desde.toISOString()}")\`) — tempo de execução: **${tempo1} ms**
+Período: últimos 90 dias (\`createdAt >= ISODate("${desde.toISOString()}")\`) — tempo de execução: **${tempo1} ms**
 
 | # | Categoria | Faturamento total | Itens vendidos | Pedidos |
 |---|---|---:|---:|---:|

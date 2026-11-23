@@ -1,6 +1,6 @@
 # Tarefa 3 — Diagnóstico e Otimização de Performance
 
-Banco `marketplace`, coleção `orders` com **100.002 documentos** (seed da Parte 4). Executado em 22/11/2026, 14:05:44.
+Banco `marketplace`, coleção `orders` com **100.002 documentos** (seed da Parte 4).
 
 ## Consulta analisada
 

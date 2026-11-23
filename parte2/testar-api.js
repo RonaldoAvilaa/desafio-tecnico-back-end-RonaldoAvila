@@ -58,7 +58,7 @@ async function chamar(titulo, metodo, rota, corpo) {
   const md = [
     `# Parte 2 - Resultado dos testes da API`,
     ``,
-    `Servidor testado: \`${BASE}\` — executado em ${new Date().toLocaleString('pt-BR')}`,
+    `Servidor testado: \`${BASE}\``,
     ``,
     ...log.flatMap((l) => [
       `## ${l.titulo}`,

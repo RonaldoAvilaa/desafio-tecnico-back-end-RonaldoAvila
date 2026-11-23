@@ -1,6 +1,6 @@
 # Parte 4 - Amostra do banco instanciado
 
-Banco: `marketplace` — gerado em 20/11/2026, 22:24:39
+Banco: `marketplace`
 
 ## Contagem de documentos
 

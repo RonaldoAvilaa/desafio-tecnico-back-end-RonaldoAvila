@@ -1,6 +1,6 @@
 # Parte 2 - Resultado dos testes da API
 
-Servidor testado: `http://localhost:3000` — executado em 22/11/2026, 14:04:42
+Servidor testado: `http://localhost:3000`
 
 ## 1. Criar um vendedor
 
