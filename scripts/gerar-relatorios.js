@@ -29,7 +29,8 @@ const DESAFIO = 'Desafio Técnico Back-End: Engenharia de Dados com MongoDB';
 const PAGE_W = 11906, MARGIN = 1134, CONTENT_W = PAGE_W - 2 * MARGIN;
 const IMG_W_PX = 620; // largura da imagem no documento (px a 96 dpi ≈ 16,4 cm)
 const FONT = 'Calibri', MONO = 'Consolas';
-const COR = { titulo: '1F4E3D', destaque: '00684A', cinza: '595959', codigoFundo: 'F3F4F6', tabelaCab: 'E3F1EA', borda: 'BFBFBF' };
+// Todo texto em preto (padrão pedido para os relatórios); só o cabeçalho das tabelas tem um cinza bem claro
+const COR = { titulo: '000000', destaque: '000000', cinza: '000000', codigoFundo: 'F3F4F6', tabelaCab: 'EDEDED', borda: 'BFBFBF' };
 
 const ATIVIDADES = [
   {
@@ -108,7 +109,7 @@ function inline(texto, base = {}) {
     if (m.index > ultimo) runs.push(new TextRun({ text: texto.slice(ultimo, m.index), font: FONT, ...base }));
     const t = m[0];
     if (t.startsWith('**')) runs.push(...inline(t.slice(2, -2), { ...base, bold: true }));
-    else runs.push(new TextRun({ text: t.slice(1, -1), font: MONO, size: (base.size || 22) - 2, color: 'B5223F', ...base, ...{ font: MONO } }));
+    else runs.push(new TextRun({ text: t.slice(1, -1), font: MONO, size: (base.size || 22) - 2, color: '000000', ...base, ...{ font: MONO } }));
     ultimo = m.index + t.length;
   }
   if (ultimo < texto.length) runs.push(new TextRun({ text: texto.slice(ultimo), font: FONT, ...base }));
