@@ -1,6 +1,6 @@
-# Tarefa 3 — Diagnóstico e Otimização de Performance
+# Tarefa 3: Diagnóstico e Otimização de Performance
 
-Banco `marketplace`, coleção `orders` com **100.002 documentos** (seed da Parte 4).
+A análise foi feita no banco `marketplace`, na coleção `orders`, que tem 100.002 documentos gerados pelo seed da Parte 4.
 
 ## Consulta analisada
 
@@ -12,30 +12,19 @@ db.orders.find({
 }).sort({ createdAt: -1 })
 ```
 
-Para o resultado ser reproduzível, a data de corte foi fixada na meia-noite (UTC) de 30 dias atrás: `createdAt >= ISODate("2026-10-23T00:00:00.000Z")`. É exatamente o filtro usado nos prints do MongoDB Compass.
+Para conseguir repetir o teste e comparar com os prints do Compass, fixei a data de corte na meia-noite (UTC) de 30 dias atrás: `createdAt >= ISODate("2026-10-23T00:00:00.000Z")`.
 
----
+## 1. Diagnóstico da consulta original
 
-## 1. Diagnóstico — `explain("executionStats")` da consulta original
+Rodei a consulta com `explain("executionStats")` 5 vezes, ainda sem nenhum índice além do `_id`. Os tempos foram 108, 88, 95, 86, 87 ms; o melhor foi 86 ms.
 
 ```js
 db.orders.find({ ... }).sort({ createdAt: -1 }).explain("executionStats")
 ```
 
-| Indicador | Valor |
-|---|---|
-| **executionTimeMillis** | **86 ms** (melhor de 5 execuções: 108, 88, 95, 86, 87 ms) |
-| **Estágio** | **SORT → COLLSCAN** |
-| **totalDocsExamined** | **100.002** |
-| totalKeysExamined | 0 |
-| nReturned | 572 |
-| Ordenação em memória (`SORT`) | Sim |
+O plano usado foi `SORT → COLLSCAN`. O COLLSCAN quer dizer que o MongoDB leu a coleção inteira: foram 100.002 documentos examinados (`totalDocsExamined`) para devolver só 572 (`nReturned`), ou seja, só 0.57% do que foi lido era útil. O `totalKeysExamined` ficou em 0 porque nenhum índice foi usado. Além disso, apareceu o estágio SORT, então o resultado ainda teve que ser ordenado na memória. Esse custo cresce junto com a coleção: com 10 milhões de pedidos seriam 10 milhões de documentos lidos em cada busca.
 
-**O que isso mostra:** o estágio `COLLSCAN` indica que o MongoDB leu **todos os 100.002 documentos** da coleção para devolver só 572. Cada documento examinado foi útil em apenas 0.57% dos casos. Depois disso, ainda precisou **ordenar o resultado em memória** (estágio `SORT`). O custo cresce linearmente com a coleção: com 10 milhões de pedidos, seriam 10 milhões de documentos lidos a cada busca.
-
----
-
-## 2. Solução — índice composto pela regra ESR
+## 2. Solução: índice composto seguindo a regra ESR
 
 ```js
 db.orders.createIndex(
@@ -44,44 +33,21 @@ db.orders.createIndex(
 )
 ```
 
-| Ordem | Campo | Papel na consulta | Regra ESR |
-|---|---|---|---|
-| 1º | `shippingCity` | `= "São Paulo"` | **E**quality |
-| 2º | `status` | `= "DELIVERED"` | **E**quality |
-| 3º | `createdAt` | `sort({ createdAt: -1 })` **e** `$gte` | **S**ort + **R**ange |
+A regra ESR (Equality, Sort, Range) diz a ordem dos campos no índice. Primeiro vêm os campos de igualdade, `shippingCity` e `status`: com eles o MongoDB vai direto para o pedaço do índice que tem só São Paulo e DELIVERED (a ordem entre os dois não faz diferença aqui). Depois vem o campo do sort, `createdAt`. Dentro daquele pedaço as entradas já estão em ordem de data, então o MongoDB lê o índice na ordem certa e não precisa mais ordenar na memória. Por último viria o campo de range, mas nesta consulta o range (`$gte`) é no mesmo `createdAt` do sort, então o mesmo campo atende os dois e o `$gte` só marca onde a leitura do índice termina. Deixei `createdAt: -1` para acompanhar o sort, mas com um campo só de sort o `1` também funcionaria, porque o índice pode ser lido de trás para frente.
 
-**Por que essa ordem:**
-- **Igualdades primeiro.** Elas fixam um único "trecho" contíguo do índice: só as entradas de São Paulo + DELIVERED. A ordem entre as duas igualdades não muda o resultado.
-- **Sort logo depois das igualdades.** Dentro desse trecho, as entradas já estão ordenadas por `createdAt`, então o MongoDB lê o índice na ordem certa e **elimina o `SORT` em memória**.
-- **Range por último.** Aqui o range é no mesmo campo do sort, então a mesma chave atende os dois: o `$gte` só define onde a leitura do índice para.
-- `createdAt: -1` acompanha a direção do sort. Para um único campo de range/sort, `1` também funcionaria, porque o índice pode ser lido de trás para frente.
+## 3. Resultado depois do índice
 
----
+| | Antes | Depois |
+|---|---|---|
+| Plano | SORT → COLLSCAN | FETCH → IXSCAN |
+| Documentos examinados | 100.002 | 572 |
+| Chaves examinadas | 0 | 572 |
+| Documentos retornados | 572 | 572 |
+| Ordenação em memória | sim | não |
+| Tempo | 86 ms | 1 ms |
 
-## 3. Resultado — `explain("executionStats")` após o índice
+Com o índice `idx_city_status_createdAt_ESR`, o plano passou a ser IXSCAN (busca no índice) e depois FETCH (leitura só dos documentos encontrados), sem o SORT. Os documentos examinados caíram de 100.002 para 572, e o `totalDocsExamined`, o `totalKeysExamined` e o `nReturned` ficaram iguais (572). Isso é o melhor caso possível, porque todo documento lido é um documento que volta no resultado.
 
-| Indicador | Antes (sem índice) | Depois (índice ESR) | Melhoria |
-|---|---:|---:|---:|
-| **executionTimeMillis** | 86 ms | **1 ms** | 98.8% mais rápido |
-| **Estágio** | `SORT → COLLSCAN` | **`FETCH → IXSCAN`** | COLLSCAN eliminado |
-| **totalDocsExamined** | 100.002 | **572** | 175× menos |
-| totalKeysExamined | 0 | 572 | — |
-| nReturned | 572 | 572 | mesmo resultado |
-| Sort em memória | Sim | **Não** | eliminado |
-| Índice usado | — | `idx_city_status_createdAt_ESR` | |
+Para confirmar que a ordem dos campos importa, criei também um índice com os mesmos campos fora da ordem ESR, `{ shippingCity: 1, createdAt: 1, status: 1 }`, e forcei o uso dele com `hint`. Ele trouxe os mesmos 572 documentos, mas precisou ler 2.619 chaves (contra 572 do índice ESR), porque com o range no meio ele percorre todos os pedidos de São Paulo dos últimos 30 dias, de qualquer status, e só depois descarta os que não são DELIVERED.
 
-**Comprovação:** depois do índice, `totalDocsExamined = totalKeysExamined = nReturned = 572`. Essa é a situação ideal: **cada documento lido é um documento devolvido**, sem desperdício. O plano passou a ser `IXSCAN` (busca no índice) seguido de `FETCH` (leitura só dos documentos encontrados), sem etapa de ordenação.
-
-### Contraprova: índice com os mesmos campos fora da ordem ESR
-
-Forçando (`hint`) o índice `{ shippingCity: 1, createdAt: 1, status: 1 }`, com o Range antes da segunda igualdade:
-
-| Indicador | Índice fora da ordem ESR | Índice ESR |
-|---|---:|---:|
-| totalKeysExamined | 2.619 | 572 |
-| totalDocsExamined | 572 | 572 |
-| nReturned | 572 | 572 |
-
-Com o range no meio, o MongoDB precisa percorrer **todas as chaves de São Paulo nos últimos 30 dias** (de todos os status) e descartar as que não são `DELIVERED`. São 2.619 chaves lidas para 572 resultados. A ordem dos campos no índice importa tanto quanto a escolha dos campos.
-
-> **Sobre o tempo em ms:** com 100.002 documentos, a coleção inteira cabe na memória RAM, então o tempo absoluto é pequeno nos dois casos e varia entre execuções. O indicador mais confiável é **`totalDocsExamined`**, que não depende de cache: ele cai de 100.002 para 572. Em produção, com milhões de documentos que não cabem na RAM, essa diferença vira segundos contra milissegundos.
+Sobre o tempo em milissegundos: com 100.002 documentos a coleção cabe inteira na memória RAM, então o tempo fica pequeno nos dois casos e muda um pouco a cada execução. Por isso o número mais confiável para comparar é o de documentos examinados, que não depende de cache. Em produção, com milhões de pedidos que não cabem na memória, essa diferença viraria segundos contra milissegundos.

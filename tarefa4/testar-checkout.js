@@ -106,42 +106,33 @@ async function limparExecucaoAnterior() {
   const todos = resultados.every((r) => r.passou);
   console.log(`\n${resultados.filter((r) => r.passou).length}/${resultados.length} cenários OK`);
 
-  const md = `# Tarefa 4 — Consistência e Transações ACID (Checkout)
+  const md = `# Tarefa 4: Consistência e Transações ACID (Checkout)
 
-Executado contra um MongoDB em **replica set** (\`rs0\`). Transações multi-documento não funcionam em instância standalone.
+Os testes foram feitos num MongoDB rodando como replica set (\`rs0\`), porque transação com vários documentos não funciona numa instância standalone.
 
-## Implementação
+## Como o checkout foi feito
 
-Arquivo [\`checkout.js\`](checkout.js), função \`checkout(client, { userId, productId, quantity })\`:
+O código está em \`tarefa4/checkout.js\`, na função \`checkout(client, { userId, productId, quantity })\`. Ela abre uma sessão, inicia a transação com read concern snapshot e write concern majority e faz estes passos:
 
-\`\`\`text
-startTransaction (readConcern: snapshot, writeConcern: majority)
- 1. products.findOne        -> existe? stock >= quantity?       (senão: erro)
- 2. users.findOne           -> walletBalance >= price*quantity? (senão: erro)
- 3. products.updateOne $inc  { stock: -quantity }
- 4. users.updateOne    $inc  { walletBalance: -total }
- 5. orders.insertOne         { status: "PAID", ... }
-commitTransaction
--- qualquer erro em qualquer passo --> abortTransaction (rollback)
-\`\`\`
+1. busca o produto e confere se ele existe e se tem estoque suficiente;
+2. busca o cliente e confere se o saldo da carteira cobre o preço vezes a quantidade;
+3. tira a quantidade do estoque com \`$inc\`;
+4. tira o valor do saldo do cliente com \`$inc\`;
+5. cria o pedido com status PAID.
 
-Pontos importantes:
-- Todas as operações recebem a mesma \`session\`. É isso que as coloca dentro da transação.
-- Os \`updateOne\` repetem a condição (\`stock: { $gte: quantity }\` e \`walletBalance: { $gte: total }\`) como segunda barreira contra concorrência.
-- Se duas transações alteram o mesmo documento ao mesmo tempo, o MongoDB aborta uma delas com \`WriteConflict\`. O cenário 6 comprova isso.
-- O bloco \`catch\` chama \`session.abortTransaction()\` explicitamente, e o \`finally\` encerra a sessão.
+Se tudo der certo, chama \`commitTransaction()\`. Se qualquer passo der erro, o \`catch\` chama \`abortTransaction()\` e nada do que foi feito dentro da transação fica gravado. No \`finally\` a sessão é encerrada.
 
-## Cenários testados — ${resultados.filter((r) => r.passou).length}/${resultados.length} OK
+Todas as operações recebem a mesma \`session\`, que é o que coloca elas dentro da transação. Nos \`updateOne\` eu repeti a condição (\`stock: { $gte: quantity }\` e \`walletBalance: { $gte: total }\`) como uma segunda proteção para compras ao mesmo tempo. E se duas transações tentarem mudar o mesmo documento juntas, o MongoDB aborta uma delas com \`WriteConflict\`, que é o que aparece no cenário 6.
 
-Dados de teste: produto "Fone" (R$ 150, estoque 5), produto "Último item" (R$ 50, estoque 1), cliente com saldo R$ 1.000 e cliente com saldo R$ 100.
+## Testes
 
-| Cenário | Esperado | Resultado obtido | Estado antes → depois | OK |
-|---|---|---|---|:-:|
-${resultados.map((r) => `| ${r.nome} | ${r.esperado} | ${r.saida.detalhe.replace(/\|/g, '/')} | estoque Fone ${r.antes.estoqueFone}→${r.depois.estoqueFone}, Último ${r.antes.estoqueUltimo}→${r.depois.estoqueUltimo}; saldo ${r.antes.saldoRico}→${r.depois.saldoRico} / ${r.antes.saldoPobre}→${r.depois.saldoPobre}; pedidos ${r.antes.pedidos}→${r.depois.pedidos} | ${r.passou ? '✅' : '❌'} |`).join('\n')}
+Para testar criei dois produtos e dois clientes: o "Fone" (R$ 150, estoque 5), o "Último item" (R$ 50, estoque 1), um cliente com R$ 1.000 de saldo e outro com R$ 100. Foram ${resultados.length} cenários e ${resultados.filter((r) => r.passou).length} passaram.
 
-**Destaque — cenário 5:** o erro acontece **depois** que o estoque e o saldo já foram debitados dentro da transação. Mesmo assim, o estado depois é idêntico ao de antes: o \`abortTransaction()\` desfez os dois débitos e nenhum pedido foi criado. Sem transação, o cliente perderia o dinheiro e o estoque sem receber o pedido.
+${resultados.map((r) => `${r.nome}. Esperado: ${r.esperado}. Resultado: ${r.saida.detalhe} Estoque do Fone ${r.antes.estoqueFone} para ${r.depois.estoqueFone}, Último item ${r.antes.estoqueUltimo} para ${r.depois.estoqueUltimo}, saldos ${r.antes.saldoRico}/${r.antes.saldoPobre} para ${r.depois.saldoRico}/${r.depois.saldoPobre}, pedidos ${r.antes.pedidos} para ${r.depois.pedidos}. ${r.passou ? 'Passou.' : 'Falhou.'}`).join('\n\n')}
 
-Os dados de teste (SKUs \`SKU-T4-001\`/\`SKU-T4-002\` e os e-mails \`teste.rico@exemplo.com\`/\`teste.pobre@exemplo.com\`) ficam gravados no banco como evidência e são substituídos a cada nova execução. O restante do seed da Parte 4 não é alterado.
+O cenário 5 é o mais importante. Nele o erro acontece depois que o estoque e o saldo já tinham sido descontados dentro da transação, e mesmo assim tudo voltou como estava antes: o \`abortTransaction()\` desfez os dois descontos e nenhum pedido foi criado. Sem transação, o cliente ficaria sem o dinheiro e sem o pedido.
+
+Os dados de teste (SKUs \`SKU-T4-001\` e \`SKU-T4-002\`, e-mails \`teste.rico@exemplo.com\` e \`teste.pobre@exemplo.com\`) ficam no banco para dar para conferir no Compass, e são apagados e criados de novo a cada execução. O resto do seed da Parte 4 não é alterado.
 `;
   fs.writeFileSync(path.join(__dirname, 'RESULTADO.md'), md);
   console.log('Relatório salvo em tarefa4/RESULTADO.md');

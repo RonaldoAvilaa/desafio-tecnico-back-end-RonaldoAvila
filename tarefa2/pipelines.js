@@ -131,67 +131,49 @@ function formatarPipeline(pipeline) {
   console.table(ranking.dados.map(({ userId, ...r }) => r));
 
   const totalGeral = faturamento.reduce((s, c) => s + c.faturamentoTotal, 0);
-  const md = `# Tarefa 2 — Relatório (Aggregation Framework)
+  const md = `# Tarefa 2: Relatório com Aggregation Framework
 
-Banco \`marketplace\` (seed da Parte 4: 100.000 pedidos).
-Os dois relatórios rodam inteiros no MongoDB com \`db.orders.aggregate([...])\`; nenhum array é processado na aplicação.
+Os dois relatórios foram feitos no banco \`marketplace\`, com os 100.000 pedidos gerados pelo seed da Parte 4. Toda a conta é feita dentro do MongoDB com \`db.orders.aggregate([...])\`; a aplicação só recebe o resultado pronto.
 
-**Status considerados como venda:** ${STATUS_FATURADOS.join(', ')}. \`PENDING\` e \`CANCELED\` ficam de fora, pois não geram receita.
+Considerei como venda os pedidos com status ${STATUS_FATURADOS.join(', ')}. Pedidos PENDING e CANCELED ficaram de fora porque não geraram receita.
 
----
+## 1. Faturamento por categoria (últimos 90 dias)
 
-## 1. Faturamento por Categoria (últimos 90 dias)
+O período usado foi \`createdAt >= ISODate("${desde.toISOString()}")\`. A consulta levou ${tempo1} ms.
 
-Período: últimos 90 dias (\`createdAt >= ISODate("${desde.toISOString()}")\`) — tempo de execução: **${tempo1} ms**
+| Categoria | Faturamento | Itens vendidos | Pedidos |
+|---|---:|---:|---:|
+${faturamento.map((c) => `| ${c.categoria} | ${brl(c.faturamentoTotal)} | ${n(c.quantidadeItens)} | ${n(c.totalPedidos)} |`).join('\n')}
 
-| # | Categoria | Faturamento total | Itens vendidos | Pedidos |
-|---|---|---:|---:|---:|
-${faturamento.map((c, i) => `| ${i + 1} | ${c.categoria} | ${brl(c.faturamentoTotal)} | ${n(c.quantidadeItens)} | ${n(c.totalPedidos)} |`).join('\n')}
-| | **Total** | **${brl(totalGeral)}** | **${n(faturamento.reduce((s, c) => s + c.quantidadeItens, 0))}** | |
+Somando as cinco categorias, o faturamento foi de ${brl(totalGeral)}, com ${n(faturamento.reduce((s, c) => s + c.quantidadeItens, 0))} itens vendidos. A coluna "Pedidos" conta quantos pedidos diferentes tiveram pelo menos um item da categoria, então um pedido com itens de duas categorias entra nas duas.
 
-> A coluna "Pedidos" conta pedidos distintos que tiveram ao menos um item da categoria. Um pedido com itens de duas categorias aparece nas duas.
-
-### Pipeline
+Pipeline usado:
 
 ${bloco('js', formatarPipeline(p1))}
 
-| Etapa | O que faz |
-|---|---|
-| \`$match\` | Mantém só pedidos faturados dos últimos 90 dias. Vem primeiro para reduzir o volume (e pode usar índice) |
-| \`$unwind\` | Abre o array \`items\`: um documento por item, porque a categoria está no item, não no pedido |
-| \`$group\` | Agrupa por categoria, somando \`unitPrice × quantity\` e as quantidades |
-| \`$project\` | Renomeia campos, arredonda valores e conta pedidos distintos |
-| \`$sort\` | Ordena do maior faturamento para o menor |
+O \`$match\` vem primeiro para filtrar só os pedidos faturados do período e diminuir o volume logo no começo (ele também pode usar índice). Como a categoria fica em cada item e não no pedido, o \`$unwind\` abre o array \`items\` em um documento por item. O \`$group\` junta por categoria somando \`unitPrice * quantity\` e as quantidades, e guarda os ids dos pedidos para contar depois. O \`$project\` arredonda os valores e conta os pedidos distintos, e o \`$sort\` deixa a categoria que mais faturou em primeiro.
 
----
+## 2. Ranking de clientes VIP de São Paulo (paginado)
 
-## 2. Ranking de Clientes VIP — São Paulo (paginado)
+Foram encontrados ${n(ranking.clientesElegiveis)} clientes com compras faturadas e entrega em São Paulo. Com ${tamanho} por página isso dá ${totalPaginas} páginas. Abaixo está a página ${pagina} (a consulta levou ${tempo2} ms):
 
-Página **${pagina}** de **${totalPaginas}** (${tamanho} por página) — **${n(ranking.clientesElegiveis)} clientes elegíveis** — tempo de execução: **${tempo2} ms**
-
-| # | Nome | E-mail | Total gasto | Pedidos |
+| Posição | Nome | E-mail | Total gasto | Pedidos |
 |---|---|---|---:|---:|
 ${ranking.dados.map((c, i) => `| ${(pagina - 1) * tamanho + i + 1} | ${c.nome} | ${c.email} | ${brl(c.totalGasto)} | ${c.quantidadePedidos} |`).join('\n')}
 
-Resposta bruta da consulta (uma única ida ao banco traz a página e o total):
+A resposta vem numa única consulta, já com a página e o total de clientes (mostrando só os dois primeiros):
 
 ${bloco('json', JSON.stringify({ dados: ranking.dados.slice(0, 2), '...': `${ranking.dados.length - 2} itens omitidos`, clientesElegiveis: ranking.clientesElegiveis }, null, 2))}
 
-### Pipeline
+Pipeline usado:
 
 ${bloco('js', formatarPipeline(p2))}
 
-| Etapa | O que faz |
-|---|---|
-| \`$match\` | Pedidos faturados com entrega em São Paulo |
-| \`$group\` | Um documento por cliente (\`userId\`) com total gasto e número de pedidos |
-| \`$sort\` | Maior gasto primeiro. O \`_id\` desempata, deixando a paginação estável entre páginas |
-| \`$facet\` | Executa **duas sub-pipelines sobre o mesmo resultado**: \`dados\` (página atual) e \`total\` (contagem de elegíveis) |
-| \`$skip\`/\`$limit\` | Recortam a página: \`skip = (página − 1) × tamanho\` |
-| \`$lookup\` | Busca nome e e-mail na coleção \`users\`. Fica **dentro** do facet, depois do \`$limit\`, para fazer apenas ${tamanho} buscas em vez de ${n(ranking.clientesElegiveis)} |
-| \`$project\` | Formata a saída final \`{ dados: [...], clientesElegiveis: N }\` |
+Primeiro o \`$match\` pega os pedidos faturados com entrega em São Paulo, e o \`$group\` transforma isso em um documento por cliente, com o total gasto e a quantidade de pedidos. O \`$sort\` ordena pelo maior gasto e usa o \`_id\` para desempatar; sem esse desempate, dois clientes com o mesmo valor poderiam trocar de página entre uma consulta e outra.
 
-Para ver outra página: \`node tarefa2/pipelines.js 2 10\`.
+A paginação é feita com \`$facet\`, que roda duas sub-pipelines em cima do mesmo resultado: \`dados\`, que recorta a página com \`$skip\` e \`$limit\` (skip = (página - 1) * tamanho), e \`total\`, que conta quantos clientes existem. Assim a tela recebe a página e o total de uma vez só. O \`$lookup\` em \`users\`, para trazer nome e e-mail, ficou dentro do facet e depois do \`$limit\`, então ele busca só os ${tamanho} clientes da página e não os ${n(ranking.clientesElegiveis)}.
+
+Para ver outra página é só passar o número da página e o tamanho: \`node tarefa2/pipelines.js 2 10\`.
 `;
   fs.writeFileSync(path.join(__dirname, 'RELATORIO.md'), md);
   console.log('\nRelatório salvo em tarefa2/RELATORIO.md');

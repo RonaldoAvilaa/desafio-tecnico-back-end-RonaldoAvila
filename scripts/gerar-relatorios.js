@@ -30,7 +30,7 @@ const PAGE_W = 11906, MARGIN = 1134, CONTENT_W = PAGE_W - 2 * MARGIN;
 const IMG_W_PX = 620; // largura da imagem no documento (px a 96 dpi ≈ 16,4 cm)
 const FONT = 'Calibri', MONO = 'Consolas';
 // Todo texto em preto (padrão pedido para os relatórios); só o cabeçalho das tabelas tem um cinza bem claro
-const COR = { titulo: '000000', destaque: '000000', cinza: '000000', codigoFundo: 'F3F4F6', tabelaCab: 'EDEDED', borda: 'BFBFBF' };
+const COR = { titulo: '000000', destaque: '000000', cinza: '000000', codigoFundo: 'F3F4F6', tabelaCab: 'EDEDED', borda: '000000' };
 
 const ATIVIDADES = [
   {
@@ -57,41 +57,41 @@ const ATIVIDADES = [
     nota: 'Observação: a contagem de orders aparece como 100.002 nos prints porque inclui 2 pedidos de teste gerados na Tarefa 4.',
   },
   {
-    id: 'Tarefa1', titulo: 'Tarefa 1 — Modelagem e Evolução de Schema', md: 'tarefa1/SOLUCAO.md',
+    id: 'Tarefa1', titulo: 'Tarefa 1: Modelagem e Evolução de Schema', md: 'tarefa1/SOLUCAO.md',
     evidencias: [
-      ['tarefa1_1_banco_demo.jpg', 'MongoDB Compass — banco tarefa1_demo após executar node tarefa1/demo.js: 25 documentos em reviews e 1 produto.'],
+      ['tarefa1_1_banco_demo.jpg', 'MongoDB Compass: banco tarefa1_demo após executar node tarefa1/demo.js: 25 documentos em reviews e 1 produto.'],
       ['tarefa1_2_produto_resumo_reviews.jpg', 'Documento do produto: ratingSummary com count 25 e average 3, e recentReviews com exatamente 10 itens (as 25 avaliações completas ficam na coleção reviews).'],
       ['tarefa1_3_pedido_statusHistory.jpg', 'Pedido com o histórico de status embutido (statusHistory): cada mudança registra de/para, data e o responsável (changedBy).'],
     ],
   },
   {
-    id: 'Tarefa2', titulo: 'Tarefa 2 — Aggregation Framework', md: 'tarefa2/RELATORIO.md',
+    id: 'Tarefa2', titulo: 'Tarefa 2: Aggregation Framework', md: 'tarefa2/RELATORIO.md',
     evidencias: [
       ['tarefa2_0_terminal.jpg', 'Execução de node tarefa2/pipelines.js: os dois relatórios calculados no MongoDB.'],
-      ['tarefa2_1_pipeline_faturamento.jpg', 'MongoDB Compass (aba Aggregations) — pipeline 1, Faturamento por Categoria: $match → $unwind → $group → $project → $sort.'],
+      ['tarefa2_1_pipeline_faturamento.jpg', 'MongoDB Compass (aba Aggregations), pipeline 1, Faturamento por Categoria: $match, $unwind, $group, $project e $sort.'],
       ['tarefa2_2_resultado_faturamento.jpg', 'Resultado do pipeline 1 no Compass: faturamento e itens vendidos por categoria, do maior para o menor.'],
-      ['tarefa2_3_pipeline_ranking_vip.jpg', 'MongoDB Compass — pipeline 2, Ranking VIP de São Paulo, com $facet (dados da página + contagem total) e $lookup em users.'],
+      ['tarefa2_3_pipeline_ranking_vip.jpg', 'MongoDB Compass: pipeline 2, Ranking VIP de São Paulo, com $facet (dados da página + contagem total) e $lookup em users.'],
       ['tarefa2_4_ranking_vip_top.jpg', 'Resultado do pipeline 2: primeiros clientes do ranking, com nome e e-mail vindos da coleção users.'],
       ['tarefa2_5_ranking_vip_total.jpg', 'Final do resultado do pipeline 2: o $facet devolve na mesma consulta o total de clientes elegíveis.'],
     ],
   },
   {
-    id: 'Tarefa3', titulo: 'Tarefa 3 — Diagnóstico e Otimização de Performance', md: 'tarefa3/SOLUCAO.md',
+    id: 'Tarefa3', titulo: 'Tarefa 3: Diagnóstico e Otimização de Performance', md: 'tarefa3/SOLUCAO.md',
     evidencias: [
-      ['tarefa3_1_explain_antes_COLLSCAN.jpg', 'ANTES — Explain Plan no MongoDB Compass sem índice: COLLSCAN, 100.002 documentos examinados para retornar 572, ordenação em memória.'],
+      ['tarefa3_1_explain_antes_COLLSCAN.jpg', 'Antes: Explain Plan no MongoDB Compass sem índice: COLLSCAN, 100.002 documentos examinados para retornar 572, ordenação em memória.'],
       ['tarefa3_2_indice_ESR_criado.jpg', 'Índice composto criado pela regra ESR: shippingCity ↑, status ↑, createdAt ↓ (aba Indexes).'],
       ['tarefa3_3_consulta_572_resultados.jpg', 'A consulta analisada no Compass (filtro + sort por createdAt), retornando 572 pedidos.'],
-      ['tarefa3_4_explain_depois_IXSCAN.jpg', 'DEPOIS — Explain Plan com o índice: IXSCAN + FETCH, 572 documentos examinados para 572 retornados, sem ordenação em memória.'],
+      ['tarefa3_4_explain_depois_IXSCAN.jpg', 'Depois: Explain Plan com o índice: IXSCAN e FETCH, 572 documentos examinados para 572 retornados, sem ordenação em memória.'],
       ['tarefa3_0_terminal_explain.jpg', 'Execução de node tarefa3/otimizar.js: explain("executionStats") antes e depois do índice, com 5 medições de tempo cada.'],
     ],
   },
   {
-    id: 'Tarefa4', titulo: 'Tarefa 4 — Consistência e Transações ACID', md: 'tarefa4/RESULTADO.md',
+    id: 'Tarefa4', titulo: 'Tarefa 4: Consistência e Transações ACID', md: 'tarefa4/RESULTADO.md',
     evidencias: [
       ['tarefa4_0_terminal_6_cenarios.jpg', 'Execução de node tarefa4/testar-checkout.js: os 6 cenários com o estado antes e depois de cada um (6/6 OK).'],
-      ['tarefa4_1_produtos_estoque.jpg', 'MongoDB Compass — produtos de teste após o checkout: Fone com estoque 3 (5 − 2) e Último item com estoque 0.'],
-      ['tarefa4_2_usuarios_saldo.jpg', 'MongoDB Compass — saldos após o checkout: cliente com R$ 650 (1000 − 300 − 50) e o cliente de saldo baixo intacto em R$ 100.'],
-      ['tarefa4_3_pedidos_PAID.jpg', 'MongoDB Compass — somente os 2 pedidos confirmados foram gravados, ambos com status PAID. Os cenários com rollback não deixaram pedidos.'],
+      ['tarefa4_1_produtos_estoque.jpg', 'MongoDB Compass: produtos de teste após o checkout: Fone com estoque 3 (5 − 2) e Último item com estoque 0.'],
+      ['tarefa4_2_usuarios_saldo.jpg', 'MongoDB Compass: saldos após o checkout: cliente com R$ 650 (1000 − 300 − 50) e o cliente de saldo baixo intacto em R$ 100.'],
+      ['tarefa4_3_pedidos_PAID.jpg', 'MongoDB Compass: somente os 2 pedidos confirmados foram gravados, ambos com status PAID. Os cenários com rollback não deixaram pedidos.'],
     ],
   },
 ];
@@ -120,10 +120,10 @@ function celula(texto, largura, cabecalho) {
   const alinhaDireita = /^-?[\d.,]+%?$|^R\$|^\*\*R\$/.test(texto.trim());
   return new TableCell({
     width: { size: largura, type: WidthType.DXA },
-    shading: cabecalho ? { type: ShadingType.CLEAR, color: 'auto', fill: COR.tabelaCab } : undefined,
+    shading: undefined,
     margins: { top: 60, bottom: 60, left: 100, right: 100 },
     children: [new Paragraph({
-      alignment: alinhaDireita && !cabecalho ? AlignmentType.RIGHT : AlignmentType.LEFT,
+      alignment: AlignmentType.LEFT,
       children: inline(texto.trim(), { size: 18, bold: cabecalho || undefined }),
     })],
   });
@@ -223,7 +223,7 @@ function secaoEvidencias(atv) {
     new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun({ text: 'Evidências da execução no MongoDB' })] }),
     new Paragraph({
       spacing: { after: 160 },
-      children: inline('Prints reais tirados durante a execução, no **MongoDB Compass** (conexão **Desafio Técnico**: replica set local `rs0`, porta 27018) e no terminal. Os números dos prints conferem com as tabelas deste relatório.'),
+      children: inline('Prints tirados durante a execução, no MongoDB Compass (conexão Desafio Técnico, replica set local rs0 na porta 27018) e no terminal. Os números dos prints são os mesmos das tabelas do relatório.'),
     }),
   ];
   if (atv.nota) els.push(new Paragraph({ spacing: { after: 160 }, children: inline(atv.nota, { italics: true, color: COR.cinza }) }));
@@ -238,7 +238,7 @@ function secaoEvidencias(atv) {
       }),
       new Paragraph({
         alignment: AlignmentType.CENTER, spacing: { after: 240 },
-        children: [new TextRun({ text: `Figura ${i + 1} — `, bold: true, size: 18, font: FONT, color: COR.destaque }),
+        children: [new TextRun({ text: `Figura ${i + 1}: `, bold: true, size: 18, font: FONT, color: COR.destaque }),
           ...inline(legenda, { size: 18, color: COR.cinza })],
       }),
     );

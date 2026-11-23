@@ -1,28 +1,24 @@
-# Tarefa 2 — Relatório (Aggregation Framework)
+# Tarefa 2: Relatório com Aggregation Framework
 
-Banco `marketplace` (seed da Parte 4: 100.000 pedidos).
-Os dois relatórios rodam inteiros no MongoDB com `db.orders.aggregate([...])`; nenhum array é processado na aplicação.
+Os dois relatórios foram feitos no banco `marketplace`, com os 100.000 pedidos gerados pelo seed da Parte 4. Toda a conta é feita dentro do MongoDB com `db.orders.aggregate([...])`; a aplicação só recebe o resultado pronto.
 
-**Status considerados como venda:** PAID, SHIPPED, DELIVERED. `PENDING` e `CANCELED` ficam de fora, pois não geram receita.
+Considerei como venda os pedidos com status PAID, SHIPPED, DELIVERED. Pedidos PENDING e CANCELED ficaram de fora porque não geraram receita.
 
----
+## 1. Faturamento por categoria (últimos 90 dias)
 
-## 1. Faturamento por Categoria (últimos 90 dias)
+O período usado foi `createdAt >= ISODate("2026-08-24T00:00:00.000Z")`. A consulta levou 248 ms.
 
-Período: últimos 90 dias (`createdAt >= ISODate("2026-08-24T00:00:00.000Z")`) — tempo de execução: **248 ms**
+| Categoria | Faturamento | Itens vendidos | Pedidos |
+|---|---:|---:|---:|
+| Casa e Cozinha | R$ 8.296.986,18 | 29.204 | 11.935 |
+| Eletrônicos | R$ 8.296.342,51 | 29.868 | 12.226 |
+| Livros | R$ 8.039.898,35 | 29.878 | 12.291 |
+| Esportes | R$ 7.819.636,57 | 29.901 | 12.262 |
+| Moda | R$ 7.558.038,20 | 30.426 | 12.382 |
 
-| # | Categoria | Faturamento total | Itens vendidos | Pedidos |
-|---|---|---:|---:|---:|
-| 1 | Casa e Cozinha | R$ 8.296.986,18 | 29.204 | 11.935 |
-| 2 | Eletrônicos | R$ 8.296.342,51 | 29.868 | 12.226 |
-| 3 | Livros | R$ 8.039.898,35 | 29.878 | 12.291 |
-| 4 | Esportes | R$ 7.819.636,57 | 29.901 | 12.262 |
-| 5 | Moda | R$ 7.558.038,20 | 30.426 | 12.382 |
-| | **Total** | **R$ 40.010.901,81** | **149.277** | |
+Somando as cinco categorias, o faturamento foi de R$ 40.010.901,81, com 149.277 itens vendidos. A coluna "Pedidos" conta quantos pedidos diferentes tiveram pelo menos um item da categoria, então um pedido com itens de duas categorias entra nas duas.
 
-> A coluna "Pedidos" conta pedidos distintos que tiveram ao menos um item da categoria. Um pedido com itens de duas categorias aparece nas duas.
-
-### Pipeline
+Pipeline usado:
 
 ```js
 db.orders.aggregate([
@@ -34,34 +30,26 @@ db.orders.aggregate([
 ])
 ```
 
-| Etapa | O que faz |
-|---|---|
-| `$match` | Mantém só pedidos faturados dos últimos 90 dias. Vem primeiro para reduzir o volume (e pode usar índice) |
-| `$unwind` | Abre o array `items`: um documento por item, porque a categoria está no item, não no pedido |
-| `$group` | Agrupa por categoria, somando `unitPrice × quantity` e as quantidades |
-| `$project` | Renomeia campos, arredonda valores e conta pedidos distintos |
-| `$sort` | Ordena do maior faturamento para o menor |
+O `$match` vem primeiro para filtrar só os pedidos faturados do período e diminuir o volume logo no começo (ele também pode usar índice). Como a categoria fica em cada item e não no pedido, o `$unwind` abre o array `items` em um documento por item. O `$group` junta por categoria somando `unitPrice * quantity` e as quantidades, e guarda os ids dos pedidos para contar depois. O `$project` arredonda os valores e conta os pedidos distintos, e o `$sort` deixa a categoria que mais faturou em primeiro.
 
----
+## 2. Ranking de clientes VIP de São Paulo (paginado)
 
-## 2. Ranking de Clientes VIP — São Paulo (paginado)
+Foram encontrados 846 clientes com compras faturadas e entrega em São Paulo. Com 10 por página isso dá 85 páginas. Abaixo está a página 1 (a consulta levou 32 ms):
 
-Página **1** de **85** (10 por página) — **846 clientes elegíveis** — tempo de execução: **32 ms**
-
-| # | Nome | E-mail | Total gasto | Pedidos |
+| Posição | Nome | E-mail | Total gasto | Pedidos |
 |---|---|---|---:|---:|
-| 1 | Cliente 1520 | cliente1520@exemplo.com | R$ 37.385,28 | 25 |
-| 2 | Cliente 1534 | cliente1534@exemplo.com | R$ 33.863,82 | 19 |
-| 3 | Cliente 77 | cliente77@exemplo.com | R$ 33.425,12 | 20 |
-| 4 | Cliente 24 | cliente24@exemplo.com | R$ 32.962,15 | 17 |
-| 5 | Cliente 125 | cliente125@exemplo.com | R$ 32.272,76 | 14 |
-| 6 | Cliente 1596 | cliente1596@exemplo.com | R$ 31.807,68 | 19 |
-| 7 | Cliente 2320 | cliente2320@exemplo.com | R$ 31.593,40 | 19 |
-| 8 | Cliente 4411 | cliente4411@exemplo.com | R$ 30.952,75 | 22 |
-| 9 | Cliente 113 | cliente113@exemplo.com | R$ 30.859,64 | 18 |
-| 10 | Cliente 70 | cliente70@exemplo.com | R$ 30.732,78 | 15 |
+| 1 | Cliente 1520 | cliente1520@exemplo.com | R$ 37.385,28 | 25 |
+| 2 | Cliente 1534 | cliente1534@exemplo.com | R$ 33.863,82 | 19 |
+| 3 | Cliente 77 | cliente77@exemplo.com | R$ 33.425,12 | 20 |
+| 4 | Cliente 24 | cliente24@exemplo.com | R$ 32.962,15 | 17 |
+| 5 | Cliente 125 | cliente125@exemplo.com | R$ 32.272,76 | 14 |
+| 6 | Cliente 1596 | cliente1596@exemplo.com | R$ 31.807,68 | 19 |
+| 7 | Cliente 2320 | cliente2320@exemplo.com | R$ 31.593,40 | 19 |
+| 8 | Cliente 4411 | cliente4411@exemplo.com | R$ 30.952,75 | 22 |
+| 9 | Cliente 113 | cliente113@exemplo.com | R$ 30.859,64 | 18 |
+| 10 | Cliente 70 | cliente70@exemplo.com | R$ 30.732,78 | 15 |
 
-Resposta bruta da consulta (uma única ida ao banco traz a página e o total):
+A resposta vem numa única consulta, já com a página e o total de clientes (mostrando só os dois primeiros):
 
 ```json
 {
@@ -86,7 +74,7 @@ Resposta bruta da consulta (uma única ida ao banco traz a página e o total):
 }
 ```
 
-### Pipeline
+Pipeline usado:
 
 ```js
 db.orders.aggregate([
@@ -109,14 +97,8 @@ db.orders.aggregate([
 ])
 ```
 
-| Etapa | O que faz |
-|---|---|
-| `$match` | Pedidos faturados com entrega em São Paulo |
-| `$group` | Um documento por cliente (`userId`) com total gasto e número de pedidos |
-| `$sort` | Maior gasto primeiro. O `_id` desempata, deixando a paginação estável entre páginas |
-| `$facet` | Executa **duas sub-pipelines sobre o mesmo resultado**: `dados` (página atual) e `total` (contagem de elegíveis) |
-| `$skip`/`$limit` | Recortam a página: `skip = (página − 1) × tamanho` |
-| `$lookup` | Busca nome e e-mail na coleção `users`. Fica **dentro** do facet, depois do `$limit`, para fazer apenas 10 buscas em vez de 846 |
-| `$project` | Formata a saída final `{ dados: [...], clientesElegiveis: N }` |
+Primeiro o `$match` pega os pedidos faturados com entrega em São Paulo, e o `$group` transforma isso em um documento por cliente, com o total gasto e a quantidade de pedidos. O `$sort` ordena pelo maior gasto e usa o `_id` para desempatar; sem esse desempate, dois clientes com o mesmo valor poderiam trocar de página entre uma consulta e outra.
 
-Para ver outra página: `node tarefa2/pipelines.js 2 10`.
+A paginação é feita com `$facet`, que roda duas sub-pipelines em cima do mesmo resultado: `dados`, que recorta a página com `$skip` e `$limit` (skip = (página - 1) * tamanho), e `total`, que conta quantos clientes existem. Assim a tela recebe a página e o total de uma vez só. O `$lookup` em `users`, para trazer nome e e-mail, ficou dentro do facet e depois do `$limit`, então ele busca só os 10 clientes da página e não os 846.
+
+Para ver outra página é só passar o número da página e o tamanho: `node tarefa2/pipelines.js 2 10`.

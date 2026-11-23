@@ -1,27 +1,18 @@
-# Tarefa 1 — Modelagem e Evolução de Schema
+# Tarefa 1: Modelagem e Evolução de Schema
 
-Duas novas funcionalidades: **Avaliações de Produtos (Reviews)** e **Logs de Auditoria de Pedidos**.
+A área de produto pediu duas funcionalidades novas: avaliações de produtos (reviews) e um log de auditoria dos pedidos. Para decidir entre Embedding e Referencing usei uma regra simples: se o dado é lido junto com o documento pai e tem um tamanho que não cresce sem parar, ele fica embutido; se pode crescer sem limite ou é consultado separado, vai para outra coleção e é referenciado pelo `_id`.
 
-A regra que guiou as decisões:
+## 1. Avaliações de produtos
 
-> **Embedding** quando o dado é lido junto com o pai e tem tamanho **limitado**.
-> **Referencing** quando o dado pode crescer **sem limite** ou é consultado de forma independente.
+Um produto popular pode chegar a dezenas de milhares de avaliações, mas a tela do produto só mostra a média, o total e as 10 avaliações mais recentes. Então separei as coisas assim:
 
----
+- Todas as avaliações ficam numa coleção nova, `reviews`, com um documento por avaliação e o campo `productId` apontando para o produto (Referencing).
+- A média e o total ficam calculados dentro do próprio produto, no campo `ratingSummary` (Embedding de um valor pré-calculado).
+- As 10 últimas avaliações ficam copiadas dentro do produto, no array `recentReviews`, que nunca passa de 10 itens (Embedding de um subconjunto).
 
-## 1. Avaliações de Produtos (Reviews)
+Isso é o que a documentação do MongoDB chama de Subset Pattern junto com Computed Pattern.
 
-Um produto popular pode ter **dezenas de milhares** de avaliações, mas a tela do produto só precisa de três coisas: **média**, **total** e as **10 mais recentes**.
-
-Por isso usei o padrão **Subset + Computed** (subconjunto e valores pré-calculados):
-
-| Dado | Onde fica | Estratégia |
-|---|---|---|
-| Todas as avaliações | Coleção `reviews` (1 documento por avaliação) | **Referencing** (`productId`) |
-| Média e total | Campo `ratingSummary` dentro de `products` | **Embedding** (valor pré-calculado) |
-| 10 avaliações mais recentes | Array `recentReviews` dentro de `products`, com no máximo 10 itens | **Embedding** (subconjunto limitado) |
-
-### Coleção `products` (alterada)
+### Coleção products (alterada)
 
 ```json
 {
@@ -50,12 +41,12 @@ Por isso usei o padrão **Subset + Computed** (subconjunto e valores pré-calcul
       "comment": "Excelente, chegou antes do prazo.",
       "createdAt": { "$date": "2026-11-20T14:02:11Z" }
     }
-    // ... no máximo 10 itens, do mais novo para o mais antigo
+    // no máximo 10 itens, do mais novo para o mais antigo
   ]
 }
 ```
 
-### Coleção `reviews` (nova)
+### Coleção reviews (nova)
 
 ```json
 {
@@ -69,22 +60,22 @@ Por isso usei o padrão **Subset + Computed** (subconjunto e valores pré-calcul
 }
 ```
 
-Índices:
+Criei dois índices nessa coleção. O primeiro serve para a página "ver todas as avaliações" (paginada pela data) e o segundo impede que o mesmo usuário avalie o mesmo produto duas vezes.
 
 ```js
-db.reviews.createIndex({ productId: 1, createdAt: -1 });          // paginação "ver todas as avaliações"
-db.reviews.createIndex({ productId: 1, userId: 1 }, { unique: true }); // 1 avaliação por usuário/produto
+db.reviews.createIndex({ productId: 1, createdAt: -1 });
+db.reviews.createIndex({ productId: 1, userId: 1 }, { unique: true });
 ```
 
-### Gravação de uma nova avaliação
+### Como grava uma avaliação nova
 
-As duas escritas abaixo rodam **na mesma transação**, para o resumo nunca divergir da coleção:
+As duas escritas rodam dentro da mesma transação, para o resumo do produto nunca ficar diferente do que está na coleção `reviews`.
 
 ```js
 // 1) documento completo na coleção reviews
 db.reviews.insertOne(review);
 
-// 2) atualiza o resumo e o subconjunto do produto numa única operação
+// 2) atualiza o resumo do produto
 db.products.updateOne({ _id: productId }, [
   { $set: {
       "ratingSummary.count": { $add: [{ $ifNull: ["$ratingSummary.count", 0] }, 1] },
@@ -94,6 +85,8 @@ db.products.updateOne({ _id: productId }, [
       "ratingSummary.average": { $round: [{ $divide: ["$ratingSummary.sum", "$ratingSummary.count"] }, 2] }
   }}
 ]);
+
+// 3) coloca a avaliação no topo do array e corta em 10
 db.products.updateOne(
   { _id: productId },
   { $inc: { [`ratingSummary.distribution.${review.rating}`]: 1 },
@@ -101,7 +94,7 @@ db.products.updateOne(
 );
 ```
 
-O `$slice: 10` com `$position: 0` coloca a avaliação nova no topo e **descarta automaticamente** a mais antiga. Assim o array nunca passa de 10 itens.
+O `$position: 0` coloca a avaliação nova na primeira posição e o `$slice: 10` joga fora a mais antiga quando passa de 10. Assim o array fica sempre do mesmo tamanho.
 
 ### Leitura na tela do produto
 
@@ -112,21 +105,15 @@ db.products.findOne(
 );
 ```
 
-A tela é montada com **uma leitura de um único documento pelo `_id`**. Não há `$lookup`, `$group` nem varredura das 18 mil avaliações.
+A tela inteira sai de uma única leitura pelo `_id`. Não precisa de `$lookup` nem de `$group`, e não passa pelas milhares de avaliações da coleção `reviews`.
 
----
+## 2. Log de auditoria dos pedidos
 
-## 2. Logs de Auditoria de Pedidos
+O pedido passa por poucos status: PENDING, PAID, SHIPPED, DELIVERED e, às vezes, CANCELED. Na prática são menos de 10 mudanças por pedido, e esse histórico é mostrado junto com o pedido na tela de acompanhamento. Por isso deixei o histórico embutido no próprio pedido, num array `statusHistory`. O status atual continua no campo `status`, que é o que as consultas usam (e que ganha índice na Tarefa 3).
 
-Um pedido passa por poucos estados (`PENDING → PAID → SHIPPED → DELIVERED`, e às vezes `CANCELED`). Esse histórico é **naturalmente limitado**: na prática, menos de 10 eventos por pedido. Ele também é lido junto com o pedido (na tela de "acompanhar pedido").
+Para o usuário responsável pela mudança, guardei o `userId` (referência para `users`) e também uma cópia do nome e do papel. Assim dá para mostrar quem mudou o status sem precisar consultar outra coleção.
 
-| Dado | Onde fica | Estratégia |
-|---|---|---|
-| Status atual | Campo `status` em `orders` | Campo simples (indexado na Tarefa 3) |
-| Histórico de mudanças | Array `statusHistory` dentro de `orders` | **Embedding** (array limitado) |
-| Usuário responsável | `changedBy` com `userId` e nome | **Referencing** para `users` + nome copiado (*extended reference*) |
-
-### Coleção `orders` (alterada)
+### Coleção orders (alterada)
 
 ```json
 {
@@ -154,42 +141,32 @@ Um pedido passa por poucos estados (`PENDING → PAID → SHIPPED → DELIVERED`
 }
 ```
 
-### Mudança de status (atômica, com validação da transição)
+### Mudança de status
 
 ```js
 db.orders.updateOne(
-  { _id: orderId, status: "PAID" },              // só avança se o status atual for o esperado
+  { _id: orderId, status: "PAID" },
   { $set:  { status: "SHIPPED" },
     $push: { statusHistory: { from: "PAID", to: "SHIPPED", at: new Date(), changedBy } } }
 );
 ```
 
-O filtro `status: "PAID"` impede que duas atualizações concorrentes gravem transições inválidas, como `PENDING → DELIVERED`. Se o status atual não for o esperado, `modifiedCount` volta 0.
+O filtro `status: "PAID"` garante que o pedido só avança se estiver no status esperado. Se duas atualizações chegarem ao mesmo tempo, só a primeira encontra o pedido como PAID; a outra volta com `modifiedCount` igual a 0 e não grava nada errado no histórico.
 
-### E se a auditoria precisar ser ilimitada?
+Se um dia a auditoria tiver que registrar qualquer evento do pedido (troca de endereço, nova tentativa de pagamento, reemissão de nota etc.), o histórico deixa de ser limitado. Aí o certo seria mover o log para uma coleção própria, `order_audit_logs`, com um documento por evento e índice em `{ orderId: 1, at: 1 }`, deixando no pedido só os últimos eventos, do mesmo jeito que foi feito com as reviews.
 
-Se a regra de negócio mudar e passar a registrar **qualquer** evento (edição de endereço, reemissão de nota, tentativas de pagamento etc.), o array deixa de ser limitado. Nesse caso, o caminho é mover o log para uma coleção própria, `order_audit_logs`, com um documento por evento, `orderId` referenciado e índice `{ orderId: 1, at: 1 }`. Ela pode ter um índice TTL, se houver prazo de retenção. Em `orders` ficaria só o status atual e, no máximo, os últimos N eventos (o mesmo padrão Subset das reviews).
+## 3. Por que essa modelagem evita o Unbounded Arrays
 
----
+Um documento no MongoDB pode ter no máximo 16 MB. O problema de Unbounded Arrays aparece quando um array cresce sem limite, por exemplo guardar todas as avaliações dentro do produto. Com dezenas de milhares de avaliações com comentário, o documento passaria dos 16 MB e as gravações começariam a dar erro. Mas bem antes disso já teria outros problemas: toda vez que alguém abrisse a tela do produto viriam megabytes de avaliações que nem aparecem na tela, e cada avaliação nova teria que reescrever um documento enorme, que ainda fica disputado por todas as gravações ao mesmo tempo.
 
-## 3. Como a modelagem evita o antipadrão *Unbounded Arrays*
+No modelo que montei isso não acontece porque:
 
-Um documento no MongoDB tem limite de **16 MB**. O antipadrão é guardar em um array algo que cresce sem limite: por exemplo, todas as avaliações dentro do produto. Na escala do enunciado (dezenas de milhares de reviews com comentário), isso:
+- as avaliações completas estão na coleção `reviews`, e o produto guarda no máximo 10 delas;
+- a média e o total já estão calculados no `ratingSummary`, então não precisa somar milhares de documentos a cada visita;
+- o documento do produto fica sempre com poucos KB, não importa quantas avaliações existam;
+- o histórico de status é limitado pelo próprio ciclo de vida do pedido;
+- a lista com todas as avaliações é uma consulta separada, paginada e usando o índice `{ productId: 1, createdAt: -1 }`, e só roda quando o usuário pede.
 
-1. **estoura os 16 MB** e as escritas começam a falhar;
-2. muito antes disso, **deixa a leitura lenta**: toda abertura da tela traz megabytes de dados que não serão exibidos;
-3. **piora as escritas**: cada nova avaliação reescreve um documento enorme, e o documento é disputado por todas as gravações simultâneas.
+Com isso a tela do produto é montada com uma leitura só, e a consulta pesada fica para quando realmente for necessária.
 
-Como esta modelagem resolve:
-
-| Risco | Solução adotada |
-|---|---|
-| Reviews crescem sem limite | Ficam na coleção `reviews` (Referencing). O produto guarda **no máximo 10** (`$push` + `$slice: 10`) |
-| Calcular média/total custaria um `$group` sobre milhares de docs | `ratingSummary` é **pré-calculado** a cada nova avaliação (Computed Pattern) |
-| Tamanho do documento `products` | Fica **constante**, alguns KB, não importa quantas avaliações existam |
-| Histórico de status | É limitado pelo ciclo de vida do pedido (menos de 10 eventos). Se deixar de ser, vai para `order_audit_logs` |
-| "Ver todas as avaliações" | Consulta paginada em `reviews`, usando o índice `{ productId: 1, createdAt: -1 }` |
-
-**Resultado:** a tela do produto faz **1 leitura por `_id`** e já recebe média, total e as 10 últimas avaliações. A consulta pesada (todas as avaliações) só acontece quando o usuário pede, paginada e indexada.
-
-> A demonstração executável desta modelagem está em [`demo.js`](demo.js) (`node tarefa1/demo.js`). Ela insere 25 avaliações, mostra que o produto guarda só as 10 mais recentes com a média correta e registra as mudanças de status de um pedido.
+Para testar a modelagem fiz o script `demo.js` (rodar com `node tarefa1/demo.js`). Ele insere 25 avaliações em um produto e mostra que o produto ficou só com as 10 mais recentes e com a média certa. Depois ele muda o status de um pedido algumas vezes e mostra o histórico gravado.
